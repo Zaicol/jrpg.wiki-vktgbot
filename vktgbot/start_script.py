@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Union
 
 from aiogram import Bot, Dispatcher
@@ -17,6 +18,7 @@ def start_script():
     dp = Dispatcher(bot)
 
     last_known_id = read_id()
+    offset = 0
     logger.info(f"Last known ID: {last_known_id}")
 
     items: Union[dict, None] = get_data_from_vk(
@@ -25,6 +27,7 @@ def start_script():
         config.VK_DOMAIN,
         config.REQ_FILTER,
         config.REQ_COUNT,
+        offset
     )
     if not items:
         return
@@ -32,6 +35,24 @@ def start_script():
     if "is_pinned" in items[0]:
         items = items[1:]
     logger.info(f"Got a few posts with IDs: {items[-1]['id']} - {items[0]['id']}.")
+    while items and int(items[-1]["id"]) >= last_known_id:
+        offset += config.REQ_COUNT
+        items: Union[dict, None] = get_data_from_vk(
+            config.VK_TOKEN,
+            config.REQ_VERSION,
+            config.VK_DOMAIN,
+            config.REQ_FILTER,
+            config.REQ_COUNT,
+            offset
+        )
+        if not items:
+            logger.error("Error was detected when requesting data from VK.")
+            return
+
+        logger.info(f"Got a few posts with IDs: {items[-1]['id']} - {items[0]['id']}.")
+
+        if "is_pinned" in items[0]:
+            items = items[1:]
 
     new_last_id: int = items[0]["id"]
 
@@ -77,6 +98,7 @@ def start_script():
                         config.TG_CHANNEL,
                         parsed_post["text"],
                         parsed_post["photos"],
+                        parsed_post["videos"],
                         parsed_post["docs"],
                     ),
                 )

@@ -12,7 +12,7 @@ from loguru import logger
 
 from config import SINGLE_START, TIME_TO_SLEEP
 from start_script import start_script
-from tools import prepare_temp_folder
+from tools import prepare_temp_folder, authors
 
 logger.add(
     "./logs/debug.log",
@@ -24,9 +24,15 @@ logger.add(
 
 logger.info("Script is started.")
 
+open("./last_id.txt", "w").write("163846")
+
 
 @logger.catch
 def main():
+    # Reading authors from the csv
+    with open("authors.csv", "r") as file:
+        for line in file.readlines():
+            authors[line.split(",")[0]] = "t.me/" + line.split(",")[1].replace("\n", "")
     start_script()
     prepare_temp_folder()
 

@@ -3,6 +3,7 @@ import re
 
 from loguru import logger
 
+authors = {}
 
 def blacklist_check(blacklist: list, text: str) -> bool:
     if blacklist:
@@ -55,9 +56,9 @@ def prepare_text_for_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
-def add_urls_to_text(text: str, urls: list, videos: list) -> str:
+def add_urls_to_text(text: str, urls: list, videos_urls: list) -> str:
     first_link = True
-    urls = videos + urls
+    urls = videos_urls + urls
 
     if not urls:
         return text
@@ -81,13 +82,17 @@ def split_text(text: str, fragment_size: int) -> list:
 
 def reformat_vk_links(text: str) -> str:
     match = re.search("\[([\w.]+?)\|(.+?)\]", text)
+
     while match:
         left_text = text[: match.span()[0]]
         right_text = text[match.span()[1] :]
         matching_text = text[match.span()[0] : match.span()[1]]
 
         link_domain, link_text = re.findall("\[(.+?)\|(.+?)\]", matching_text)[0]
-        text = left_text + f"""<a href="{f'https://vk.com/{link_domain}'}">{link_text}</a>""" + right_text
+        new_link = authors.get(link_domain, f'https://vk.com/{link_domain}')
+        logger.info(f"Replaced {link_domain} with {new_link}")
+        html_link = f'<a href="{new_link}">{link_text}</a>' if new_link != "t.me/0" else link_text
+        text = left_text + html_link + right_text
         match = re.search("\[([\w.]+?)\|(.+?)\]", text)
 
     return text

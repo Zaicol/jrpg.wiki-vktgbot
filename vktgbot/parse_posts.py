@@ -18,25 +18,33 @@ def parse_post(item: dict, repost_exists: bool, item_type: str, group_name: str)
 
     urls: list = []
     videos: list = []
+    videos_urls: list = []
     photos: list = []
     docs: list = []
 
     if "attachments" in item:
-        parse_attachments(item["attachments"], text, urls, videos, photos, docs)
+        parse_attachments(item["attachments"], text, urls, videos, photos, docs, videos_urls)
 
-    text = add_urls_to_text(text, urls, videos)
+    text = add_urls_to_text(text, urls, videos_urls)
+
+    # Доп штуки
+    # text = "ID: " + str(item["id"]) + "\n" + text
+    text = text.replace("@jrpg.wiki", "@jrpg_wiki")
+
+
     logger.info(f"{item_type.capitalize()} parsing is complete.")
-    return {"text": text, "photos": photos, "docs": docs}
+    return {"text": text, "photos": photos, "docs": docs, "videos": videos}
 
 
-def parse_attachments(attachments, text, urls, videos, photos, docs):
+def parse_attachments(attachments, text, urls, videos, photos, docs, videos_urls):
     for attachment in attachments:
         if attachment["type"] == "link":
             url = get_url(attachment, text)
             if url:
                 urls.append(url)
         elif attachment["type"] == "video":
-            video = get_video(attachment)
+            video = get_video(attachment, videos_urls)
+            logger.info(f"Video was received: {video}.")
             if video:
                 videos.append(video)
         elif attachment["type"] == "photo":
@@ -54,19 +62,19 @@ def get_url(attachment: dict, text: str) -> Union[str, None]:
     return url if url not in text else None
 
 
-def get_video(attachment: dict) -> str:
+def get_video(attachment: dict, videos_urls: list) -> str:
+
     owner_id = attachment["video"]["owner_id"]
     video_id = attachment["video"]["id"]
     video_type = attachment["video"]["type"]
     access_key = attachment["video"].get("access_key", "")
 
-    video = get_video_url(VK_TOKEN, REQ_VERSION, owner_id, video_id, access_key)
+    video = get_video_url(VK_TOKEN, REQ_VERSION, owner_id, video_id, access_key, videos_urls)
+    logger.info(f"Video URL was received: {video}.")
     if video:
         return video
     elif video_type == "short_video":
-        return f"https://vk.com/clip{owner_id}_{video_id}"
-    else:
-        return f"https://vk.com/video{owner_id}_{video_id}"
+        videos_urls.append("https://vk.com/clip{owner_id}_{video_id}")
 
 
 def get_photo(attachment: dict) -> Union[str, None]:
