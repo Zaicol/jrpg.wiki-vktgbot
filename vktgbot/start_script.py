@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Union
 
 from aiogram import Bot, Dispatcher

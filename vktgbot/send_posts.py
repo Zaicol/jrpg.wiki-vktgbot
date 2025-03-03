@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from aiogram import Bot, types
 import aiohttp
@@ -14,15 +15,21 @@ async def get_file_size(url: str) -> int:
             return int(response.headers.get("Content-Length", 0))
 
 
-async def send_post(bot: Bot, tg_channel: str, text: str, photos: list, videos: list, docs: list, num_tries: int = 0) -> None:
+async def send_post(bot: Bot, tg_channel: str, text: str,
+                    photos: list, videos: list, docs: list, num_tries: int = 0) -> None:
+    """Главная функция по отправке поста в телеграм"""
     num_tries += 1
     logger.info("Videos: " + str(videos))
     if num_tries > 3:
         logger.error("Post was not sent to Telegram. Too many tries.")
         return
     try:
+        # Особый режим для постов-впечатлений об играх
+        if text.startswith("Впечатления"):
+            await send_impressions_post(bot, tg_channel, text, photos)
+
         # Если нет фото, видео и документов — просто текст
-        if len(photos) == 0 and len(videos) == 0:
+        elif len(photos) == 0 and len(videos) == 0:
             await send_text_post(bot, tg_channel, text)
         else:
             await send_media_post(bot, tg_channel, text, photos, videos)
@@ -48,7 +55,7 @@ async def send_text_post(bot: Bot, tg_channel: str, text: str) -> None:
     if len(text) < 4096:
         await bot.send_message(tg_channel, text, parse_mode=types.ParseMode.HTML)
     else:
-        text_parts = split_text(text, 4084)
+        text_parts = split_text_by_chunks(text)
         prepared_text_parts = (
             [text_parts[0] + " (...)"]
             + ["(...) " + part + " (...)" for part in text_parts[1:-1]]
@@ -61,32 +68,36 @@ async def send_text_post(bot: Bot, tg_channel: str, text: str) -> None:
     logger.info("Text post sent to Telegram.")
 
 
-# async def send_photo_post(bot: Bot, tg_channel: str, text: str, photos: list) -> None:
-#     if len(text) <= 1024:
-#         await bot.send_photo(tg_channel, photos[0], text, parse_mode=types.ParseMode.HTML)
-#         logger.info("Text post (<=1024) with photo sent to Telegram.")
-#     else:
-#         prepared_text = f'<a href="{photos[0]}"> </a>{text}'
-#         if len(prepared_text) <= 4096:
-#             await bot.send_message(tg_channel, prepared_text, parse_mode=types.ParseMode.HTML)
-#         else:
-#             await send_text_post(bot, tg_channel, text)
-#             await bot.send_photo(tg_channel, photos[0])
-#         logger.info("Text post (>1024) with photo sent to Telegram.")
-#
-#
-# async def send_photos_post(bot: Bot, tg_channel: str, text: str, photos: list) -> None:
-#     media = types.MediaGroup()
-#     for photo in photos:
-#         media.attach_photo(types.InputMediaPhoto(photo))
-#
-#     if (len(text) > 0) and (len(text) <= 1024):
-#         media.media[0].caption = text
-#         media.media[0].parse_mode = types.ParseMode.HTML
-#     elif len(text) > 1024:
-#         await send_text_post(bot, tg_channel, text)
-#     await bot.send_media_group(tg_channel, media)
-#     logger.info("Text post with photos sent to Telegram.")
+def split_text_by_chunks(text: str) -> list:
+    """Разделение текста на чанки по словам и абзацам, чтобы не превышать лимит в 4096 символов."""
+    return_text = []
+    cursor_index = 0
+    while cursor_index < len(text):
+        chunk = text[cursor_index:cursor_index + 4096]
+        # Сначала пробуем делить по абзацу
+        paragraph_index = chunk.rfind("\n\n")
+        if paragraph_index != -1:
+            return_text.append(chunk[: paragraph_index + 2])
+            cursor_index += paragraph_index + 2
+            continue
+
+        # Если не получилось, то пробуем делить по слову
+        space_index = chunk.rfind(" ")
+        if space_index != -1:
+            return_text.append(chunk[: space_index + 1])
+            cursor_index += space_index + 1
+        else:
+            return_text.append(chunk)
+            cursor_index += 4096
+    return return_text
+
+
+async def send_impressions_post(bot: Bot, tg_channel: str, text: str, photos: list) -> None:
+    # Текст делится на три части: начало, понравилось, не понравилось.
+    text = re.split("ЧТО ПОНРАВИЛОСЬ|ЧТО НЕ ПОНРАВИЛОСЬ", text)
+    await send_media_post(bot, tg_channel, text[0], photos, [])
+    await send_text_post(bot, tg_channel, "ЧТО ПОНРАВИЛОСЬ" + text[1])
+    await send_text_post(bot, tg_channel, "ЧТО НЕ ПОНРАВИЛОСЬ" + text[2])
 
 
 async def send_media_post(bot: Bot, tg_channel: str, text: str, photos: list, videos: list) -> None:
