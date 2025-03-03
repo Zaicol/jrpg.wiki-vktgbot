@@ -2,7 +2,6 @@ import asyncio
 
 from aiogram import Bot, types
 import aiohttp
-from aiogram.types import InputMediaVideo
 from aiogram.utils import exceptions
 from loguru import logger
 
@@ -25,29 +24,13 @@ async def send_post(bot: Bot, tg_channel: str, text: str, photos: list, videos: 
         # Если нет фото, видео и документов — просто текст
         if len(photos) == 0 and len(videos) == 0:
             await send_text_post(bot, tg_channel, text)
-
-        # Если есть одно фото
-        elif len(photos) == 1 and len(videos) == 0:
-            await send_photo_post(bot, tg_channel, text, photos)
-
-        # Если есть несколько фото
-        elif len(photos) >= 2 and len(videos) == 0:
-            await send_photos_post(bot, tg_channel, text, photos)
-
-        # Если есть видео (обработка списка videos)
-        if videos:
-            for video in videos:
-                logger.info(f"Video size: {await get_file_size(video)}")
-            if len(videos) == 1:  # Одно видео
-                await bot.send_video(chat_id=tg_channel, video=videos[0], caption=text)
-            elif len(videos) > 1:  # Несколько видео
-                media = [InputMediaVideo(media=video) for video in videos]
-                # Если текст есть, добавляем его к первому видео
-                if text:
-                    media[0].caption = text
-                await bot.send_media_group(chat_id=tg_channel, media=media)
+        else:
+            await send_media_post(bot, tg_channel, text, photos, videos)
         if docs:
             await send_docs_post(bot, tg_channel, docs)
+
+        return
+
     except exceptions.RetryAfter as ex:
         logger.warning(f"Flood limit is exceeded. Sleep {ex.timeout} seconds. Try: {num_tries}")
         await asyncio.sleep(ex.timeout)
@@ -78,71 +61,56 @@ async def send_text_post(bot: Bot, tg_channel: str, text: str) -> None:
     logger.info("Text post sent to Telegram.")
 
 
-async def send_photo_post(bot: Bot, tg_channel: str, text: str, photos: list) -> None:
-    if len(text) <= 1024:
-        await bot.send_photo(tg_channel, photos[0], text, parse_mode=types.ParseMode.HTML)
-        logger.info("Text post (<=1024) with photo sent to Telegram.")
-    else:
-        prepared_text = f'<a href="{photos[0]}"> </a>{text}'
-        if len(prepared_text) <= 4096:
-            await bot.send_message(tg_channel, prepared_text, parse_mode=types.ParseMode.HTML)
-        else:
-            await send_text_post(bot, tg_channel, text)
-            await bot.send_photo(tg_channel, photos[0])
-        logger.info("Text post (>1024) with photo sent to Telegram.")
+# async def send_photo_post(bot: Bot, tg_channel: str, text: str, photos: list) -> None:
+#     if len(text) <= 1024:
+#         await bot.send_photo(tg_channel, photos[0], text, parse_mode=types.ParseMode.HTML)
+#         logger.info("Text post (<=1024) with photo sent to Telegram.")
+#     else:
+#         prepared_text = f'<a href="{photos[0]}"> </a>{text}'
+#         if len(prepared_text) <= 4096:
+#             await bot.send_message(tg_channel, prepared_text, parse_mode=types.ParseMode.HTML)
+#         else:
+#             await send_text_post(bot, tg_channel, text)
+#             await bot.send_photo(tg_channel, photos[0])
+#         logger.info("Text post (>1024) with photo sent to Telegram.")
+#
+#
+# async def send_photos_post(bot: Bot, tg_channel: str, text: str, photos: list) -> None:
+#     media = types.MediaGroup()
+#     for photo in photos:
+#         media.attach_photo(types.InputMediaPhoto(photo))
+#
+#     if (len(text) > 0) and (len(text) <= 1024):
+#         media.media[0].caption = text
+#         media.media[0].parse_mode = types.ParseMode.HTML
+#     elif len(text) > 1024:
+#         await send_text_post(bot, tg_channel, text)
+#     await bot.send_media_group(tg_channel, media)
+#     logger.info("Text post with photos sent to Telegram.")
 
 
-async def send_photos_post(bot: Bot, tg_channel: str, text: str, photos: list) -> None:
+async def send_media_post(bot: Bot, tg_channel: str, text: str, photos: list, videos: list) -> None:
+    """Функция отправки сообщения с медиа"""
+
+    # Добавляем фото и видео в группу медиа
     media = types.MediaGroup()
     for photo in photos:
         media.attach_photo(types.InputMediaPhoto(photo))
-
-    if (len(text) > 0) and (len(text) <= 1024):
-        media.media[0].caption = text
-        media.media[0].parse_mode = types.ParseMode.HTML
-    elif len(text) > 1024:
-        await send_text_post(bot, tg_channel, text)
-    await bot.send_media_group(tg_channel, media)
-    logger.info("Text post with photos sent to Telegram.")
-
-
-async def send_photos_and_videos(bot: Bot, tg_channel: str, text: str, photos: list, videos: list) -> None:
-    if not photos and not videos:
-        await send_text_post(bot, tg_channel, text)
-        return
-
-    media = types.MediaGroup()
-
-    for photo in photos:
-        media.attach_photo(types.InputMediaPhoto(photo))
-
     for video in videos:
         media.attach_video(types.InputMediaVideo(video))
 
-    if len(photos) + len(videos) == 1:
-        if len(text) <= 1024:
-            if photos:
-                await bot.send_photo(tg_channel, photos[0], text, parse_mode=types.ParseMode.HTML)
-            else:
-                await bot.send_video(tg_channel, videos[0], text, parse_mode=types.ParseMode.HTML)
-        else:
-            prepared_text = f'<a href="{photos[0] if photos else videos[0]}"> </a>{text}'
-            if len(prepared_text) <= 4096:
-                await bot.send_message(tg_channel, prepared_text, parse_mode=types.ParseMode.HTML)
-            else:
-                await send_text_post(bot, tg_channel, text)
-                if photos:
-                    await bot.send_photo(tg_channel, photos[0])
-                else:
-                    await bot.send_video(tg_channel, videos[0])
+    # Определяем размер текста, и на этой основе выбираем способ отправки
+    if text and (len(text) <= 1024):
+        media.media[0].caption = text
+        media.media[0].parse_mode = types.ParseMode.HTML
+    elif len(text) <= 4096:
+        await send_text_post(bot, tg_channel, text)
     else:
-        if (len(text) > 0) and (len(text) <= 1024):
-            media.media[0].caption = text
-            media.media[0].parse_mode = types.ParseMode.HTML
-        elif len(text) > 1024:
-            await send_text_post(bot, tg_channel, text)
+        for i in range(len(text) // 4096):
+            await send_text_post(bot, tg_channel, text[i * 4096:(i + 1) * 4096])
 
-        await bot.send_media_group(tg_channel, media)
+    # Отправляем всё медиа
+    await bot.send_media_group(tg_channel, media)
 
     logger.info("Text post with media sent to Telegram.")
 
