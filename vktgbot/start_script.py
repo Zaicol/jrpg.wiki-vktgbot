@@ -2,6 +2,8 @@ from typing import Union
 
 from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
+from aiohttp import ClientSession
+from aiohttp_socks import ProxyConnector
 from loguru import logger
 
 import config
@@ -11,9 +13,11 @@ from parse_posts import parse_post
 from send_posts import send_post
 from tools import blacklist_check, prepare_temp_folder, whitelist_check
 
+PROXY_URL = 'http://proxy.server:3128'
+
 
 def start_script():
-    bot = Bot(token=config.TG_BOT_TOKEN)
+    bot = Bot(token=config.TG_BOT_TOKEN, proxy=PROXY_URL)
     dp = Dispatcher(bot)
 
     last_known_id = read_id()
