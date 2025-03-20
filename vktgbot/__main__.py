@@ -23,8 +23,7 @@ logger.add(
 )
 
 logger.info("Script is started.")
-
-open("./last_id.txt", "w").write("163846")
+# №open("./last_id.txt", "w").write("163715") # 163715 163846
 
 
 @logger.catch

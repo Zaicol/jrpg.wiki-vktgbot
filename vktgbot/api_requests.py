@@ -1,11 +1,10 @@
-import asyncio
 from typing import Union
 
 import re
 
-import aiohttp
 import requests
 from loguru import logger
+from requests import ConnectTimeout
 
 
 def get_data_from_vk(
@@ -19,24 +18,28 @@ def get_data_from_vk(
     else:
         source_param = {"domain": vk_domain}
 
-    response = requests.get(
-        "https://api.vk.com/method/wall.get",
-        params=dict(
-            {
-                "access_token": vk_token,
-                "v": req_version,
-                "filter": req_filter,
-                "count": req_count,
-                "offset": offset,
-            },
-            **source_param,
-        ),
-    )
-    data = response.json()
-    if "response" in data:
-        return data["response"]["items"]
-    elif "error" in data:
-        logger.error("Error was detected when requesting data from VK: " f"{data['error']['error_msg']}")
+    try:
+        response = requests.get(
+            "https://api.vk.com/method/wall.get",
+            params=dict(
+                {
+                    "access_token": vk_token,
+                    "v": req_version,
+                    "filter": req_filter,
+                    "count": req_count,
+                    "offset": offset,
+                },
+                **source_param,
+            ),
+        )
+        data = response.json()
+        if "response" in data:
+            return data["response"]["items"]
+        elif "error" in data:
+            logger.error("Error was detected when requesting data from VK: " f"{data['error']['error_msg']}")
+    except ConnectTimeout as e:
+        logger.error("Got timeout when requesting data from VK:")
+        logger.error(e)
     return None
 
 
