@@ -2,8 +2,6 @@ from typing import Union
 
 from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
-from aiohttp import ClientSession
-from aiohttp_socks import ProxyConnector
 from loguru import logger
 
 import config
