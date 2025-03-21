@@ -31,6 +31,7 @@ def get_data_from_vk(
                 },
                 **source_param,
             ),
+            proxies="http://proxy.server:3128",
         )
         data = response.json()
         if "response" in data:
