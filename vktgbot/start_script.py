@@ -6,7 +6,7 @@ from loguru import logger
 
 import config
 from api_requests import get_data_from_vk, get_group_name
-from last_id import read_id, write_id
+from last_id import read_id, write_id, write_time
 from parse_posts import parse_post
 from send_posts import send_post
 from tools import blacklist_check, prepare_temp_folder, whitelist_check
@@ -15,7 +15,7 @@ PROXY_URL = 'http://proxy.server:3128'
 
 
 def start_script():
-    bot = Bot(token=config.TG_BOT_TOKEN, proxy=PROXY_URL)
+    bot = Bot(token=config.TG_BOT_TOKEN) #, proxy=PROXY_URL)
     dp = Dispatcher(bot)
 
     last_known_id = read_id()
@@ -105,3 +105,4 @@ def start_script():
                 )
 
         write_id(new_last_id)
+        write_time()
