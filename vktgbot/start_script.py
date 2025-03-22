@@ -106,3 +106,4 @@ def start_script():
 
         write_id(new_last_id)
         write_time()
+    write_time()
