@@ -11,11 +11,9 @@ from parse_posts import parse_post
 from send_posts import send_post
 from tools import blacklist_check, prepare_temp_folder, whitelist_check
 
-PROXY_URL = 'http://proxy.server:3128'
-
 
 def start_script():
-    bot = Bot(token=config.TG_BOT_TOKEN) #, proxy=PROXY_URL)
+    bot = Bot(token=config.TG_BOT_TOKEN)
     dp = Dispatcher(bot)
 
     last_known_id = read_id()
@@ -92,17 +90,22 @@ def start_script():
                 logger.info(f"Starting parsing of the {item_part}")
                 parsed_post = parse_post(item_parts[item_part], repost_exists, item_part, group_name)
                 logger.info(f"Starting sending of the {item_part}")
-                executor.start(
-                    dp,
-                    send_post(
-                        bot,
-                        config.TG_CHANNEL,
-                        parsed_post["text"],
-                        parsed_post["photos"],
-                        parsed_post["videos"],
-                        parsed_post["docs"],
-                    ),
-                )
+                try:
+                    executor.start(
+                        dp,
+                        send_post(
+                            bot,
+                            config.TG_CHANNEL,
+                            parsed_post["text"],
+                            parsed_post["photos"],
+                            parsed_post["videos"],
+                            parsed_post["docs"],
+                        ),
+                    )
+                except RuntimeError as e:
+                    logger.error("The script was stopped (probably by the user).")
+                    logger.error(f"The error message: {e}")
+                    exit()
 
         write_id(new_last_id)
         write_time()

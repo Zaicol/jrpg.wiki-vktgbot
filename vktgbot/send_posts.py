@@ -54,6 +54,7 @@ async def send_text_post(bot: Bot, tg_channel: str, text: str) -> None:
 
     if len(text) < 4096:
         await bot.send_message(tg_channel, text, parse_mode=types.ParseMode.HTML)
+        logger.info(f"Text post with length {len(text)} sent to Telegram.")
     else:
         text_parts = split_text_by_chunks(text)
         prepared_text_parts = (
@@ -65,14 +66,14 @@ async def send_text_post(bot: Bot, tg_channel: str, text: str) -> None:
         for part in prepared_text_parts:
             await bot.send_message(tg_channel, part, parse_mode=types.ParseMode.HTML)
             await asyncio.sleep(0.5)
-    logger.info("Text post sent to Telegram.")
+        logger.info(f"Text post with length {len(text)} spilt into {len(prepared_text_parts)} chunks sent to Telegram.")
 
 
 def split_text_by_chunks(text: str) -> list:
     """Разделение текста на чанки по словам и абзацам, чтобы не превышать лимит в 4096 символов."""
     return_text = []
     cursor_index = 0
-    while cursor_index < len(text):
+    while cursor_index + 4096 < len(text):
         chunk = text[cursor_index:cursor_index + 4096]
         # Сначала пробуем делить по абзацу
         paragraph_index = chunk.rfind("\n\n")
@@ -89,11 +90,13 @@ def split_text_by_chunks(text: str) -> list:
         else:
             return_text.append(chunk)
             cursor_index += 4096
+    return_text.append(text[cursor_index:])
     return return_text
 
 
 async def send_impressions_post(bot: Bot, tg_channel: str, text: str, photos: list) -> None:
     # Текст делится на три части: начало, понравилось, не понравилось.
+    logger.info("Recognized impressions post.")
     text = re.split("ЧТО ПОНРАВИЛОСЬ|ЧТО НЕ ПОНРАВИЛОСЬ", text)
     await send_media_post(bot, tg_channel, text[0], photos, [])
     await send_text_post(bot, tg_channel, "ЧТО ПОНРАВИЛОСЬ" + text[1])

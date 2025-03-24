@@ -15,7 +15,7 @@ from start_script import start_script
 from tools import prepare_temp_folder, authors
 
 logger.add(
-    "./logs/debug.log",
+    "./logs/vktgbot.log",
     format="{time} {level} {message}",
     level="DEBUG",
     rotation="1 week",
@@ -29,7 +29,7 @@ logger.info("Script is started.")
 @logger.catch
 def main():
     # Reading authors from the csv
-    with open("authors.csv", "r") as file:
+    with open("authors.csv", "r+") as file:
         for line in file.readlines():
             authors[line.split(",")[0]] = "t.me/" + line.split(",")[1].replace("\n", "")
     start_script()

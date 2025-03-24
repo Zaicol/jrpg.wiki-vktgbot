@@ -1,3 +1,4 @@
+import json
 from typing import Union
 
 import re
@@ -82,7 +83,7 @@ def get_video_url(vk_token: str, req_version: float, owner_id: str, video_id: st
     if "response" in data and data["response"]["items"]:
         ext = get_best_quality_url(data["response"]["items"][0]["files"])
         logger.info(f"Files:")
-        logger.info(data['response']['items'][0]['files'])
+        logger.info(json.dumps(data["response"]["items"][0]["files"], indent=4, ensure_ascii=False))
         if not ext:
             videos_urls.append(f"https://vk.com/video{owner_id}_{video_id}")
         return ext
