@@ -73,8 +73,9 @@ def split_text_by_chunks(text: str) -> list:
     """Разделение текста на чанки по словам и абзацам, чтобы не превышать лимит в 4096 символов."""
     return_text = []
     cursor_index = 0
-    while cursor_index + 4096 < len(text):
-        chunk = text[cursor_index:cursor_index + 4096]
+    max_text_length = 4096 - len('(...) ') * 2
+    while cursor_index + max_text_length < len(text):
+        chunk = text[cursor_index:cursor_index + max_text_length]
         # Сначала пробуем делить по абзацу
         paragraph_index = chunk.rfind("\n\n")
         if paragraph_index != -1:
@@ -89,7 +90,7 @@ def split_text_by_chunks(text: str) -> list:
             cursor_index += space_index + 1
         else:
             return_text.append(chunk)
-            cursor_index += 4096
+            cursor_index += max_text_length
     return_text.append(text[cursor_index:])
     return return_text
 
@@ -117,11 +118,8 @@ async def send_media_post(bot: Bot, tg_channel: str, text: str, photos: list, vi
     if text and (len(text) <= 1024):
         media.media[0].caption = text
         media.media[0].parse_mode = types.ParseMode.HTML
-    elif len(text) <= 4096:
+    elif text:
         await send_text_post(bot, tg_channel, text)
-    else:
-        for i in range(len(text) // 4096):
-            await send_text_post(bot, tg_channel, text[i * 4096:(i + 1) * 4096])
 
     # Отправляем всё медиа
     await bot.send_media_group(tg_channel, media)
