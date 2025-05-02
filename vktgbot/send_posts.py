@@ -52,19 +52,21 @@ async def send_text_post(bot: Bot, tg_channel: str, text: str) -> None:
     if not text:
         return
 
-    if len(text) < 4096:
-        await bot.send_message(tg_channel, text, parse_mode=types.ParseMode.HTML)
+    if len(text) <= 4096:
+        await bot.send_message(tg_channel, text, parse_mode=types.ParseMode.HTML,
+                               disable_web_page_preview=True)
         logger.info(f"Text post with length {len(text)} sent to Telegram.")
     else:
         text_parts = split_text_by_chunks(text)
         prepared_text_parts = (
-            [text_parts[0] + " (...)"]
-            + ["(...) " + part + " (...)" for part in text_parts[1:-1]]
-            + ["(...) " + text_parts[-1]]
+                [text_parts[0] + " (...)"]
+                + ["(...) " + part + " (...)" for part in text_parts[1:-1]]
+                + ["(...) " + text_parts[-1]]
         )
 
         for part in prepared_text_parts:
-            await bot.send_message(tg_channel, part, parse_mode=types.ParseMode.HTML)
+            await bot.send_message(tg_channel, part, parse_mode=types.ParseMode.HTML,
+                                   disable_web_page_preview=True)
             await asyncio.sleep(0.5)
         logger.info(f"Text post with length {len(text)} spilt into {len(prepared_text_parts)} chunks sent to Telegram.")
 
