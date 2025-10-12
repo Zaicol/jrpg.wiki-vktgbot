@@ -24,9 +24,12 @@ async def send_post(bot: Bot, tg_channel: str, text: str,
         logger.error("Post was not sent to Telegram. Too many tries.")
         return
     try:
-        # Особый режим для постов-впечатлений об играх
-        if text.startswith("Впечатления"):
-            await send_impressions_post(bot, tg_channel, text, photos)
+        # Особый режим для постов-впечатлений об играх.
+        # Эти посты всегда длиннее стандартного лимита на количество символов,
+        # Поэтому админ группы вызвалась их постить сама, с тг премиум
+        if text.lower().startswith("впечатлени"):
+            # await send_impressions_post(bot, tg_channel, text, photos)
+            pass
 
         # Если нет фото, видео и документов — просто текст
         elif len(photos) == 0 and len(videos) == 0:
