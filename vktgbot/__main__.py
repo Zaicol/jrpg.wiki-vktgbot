@@ -28,7 +28,7 @@ logger.info("Script is started.")
 
 @logger.catch
 def main():
-    with open("pid.txt", "r") as pid_file:
+    with open("pid.txt", "w+") as pid_file:
         pid_file.write(str(os.getpid()))
     # Reading authors from the csv
     with open("authors.csv", "r+") as file:
