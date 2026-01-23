@@ -5,7 +5,7 @@ to Telegram channels.
 v3.1
 by @alcortazzo
 """
-
+import os
 import time
 
 from loguru import logger
@@ -28,6 +28,8 @@ logger.info("Script is started.")
 
 @logger.catch
 def main():
+    with open("pid.txt", "r") as pid_file:
+        pid_file.write(str(os.getpid()))
     # Reading authors from the csv
     with open("authors.csv", "r+") as file:
         for line in file.readlines():
