@@ -1,12 +1,13 @@
 import asyncio
 import re
 
-from aiogram import Bot, types
+from aiogram import Bot
+from aiogram.exceptions import TelegramRetryAfter, TelegramBadRequest
+from aiogram.types import (InputMediaPhoto, InputMediaVideo, InputMediaDocument,
+                           FSInputFile, LinkPreviewOptions, ReplyParameters)
+from aiogram.enums import ParseMode
 import aiohttp
-from aiogram.utils import exceptions
 from loguru import logger
-
-from tools import split_text
 
 
 async def get_file_size(url: str) -> int:
@@ -41,26 +42,29 @@ async def send_post(bot: Bot, tg_channel: str, text: str,
 
         return
 
-    except exceptions.RetryAfter as ex:
-        logger.warning(f"Flood limit is exceeded. Sleep {ex.timeout} seconds. Try: {num_tries}")
-        await asyncio.sleep(ex.timeout)
+    except TelegramRetryAfter as ex:
+        logger.warning(f"Flood limit is exceeded. Sleep {ex.retry_after} seconds. Try: {num_tries}")
+        await asyncio.sleep(ex.retry_after)
         await send_post(bot, tg_channel, text, photos, videos, docs, num_tries)
-    except exceptions.BadRequest as ex:
+    except TelegramBadRequest as ex:
         logger.warning(f"Bad request. Wait 60 seconds. Try: {num_tries}. {ex}")
         await asyncio.sleep(60)
         await send_post(bot, tg_channel, text, photos, videos, docs, num_tries)
 
 
-async def send_text_post(bot: Bot, tg_channel: str, text: str) -> None:
+async def send_text_post(bot: Bot, tg_channel: str, text: str) -> int:
     if not text:
-        return
+        return 0
+
+    link_preview_settings = LinkPreviewOptions(is_disabled=True)
+    last_msg = None
 
     if len(text) <= 4096:
-        await bot.send_message(tg_channel, text, parse_mode=types.ParseMode.HTML,
-                               disable_web_page_preview=True)
+        last_msg = await bot.send_message(tg_channel, text, parse_mode=ParseMode.HTML,
+                                          link_preview_options=link_preview_settings)
         logger.info(f"Text post with length {len(text)} sent to Telegram.")
     else:
-        text_parts = split_text_by_chunks(text)
+        text_parts = await split_text_by_chunks(text)
         prepared_text_parts = (
                 [text_parts[0] + " (...)"]
                 + ["(...) " + part + " (...)" for part in text_parts[1:-1]]
@@ -68,13 +72,15 @@ async def send_text_post(bot: Bot, tg_channel: str, text: str) -> None:
         )
 
         for part in prepared_text_parts:
-            await bot.send_message(tg_channel, part, parse_mode=types.ParseMode.HTML,
-                                   disable_web_page_preview=True)
+            last_msg = await bot.send_message(tg_channel, part, parse_mode=ParseMode.HTML,
+                                              link_preview_options=link_preview_settings)
             await asyncio.sleep(0.5)
         logger.info(f"Text post with length {len(text)} spilt into {len(prepared_text_parts)} chunks sent to Telegram.")
 
+    return last_msg.message_id if last_msg else 0
 
-def split_text_by_chunks(text: str) -> list:
+
+async def split_text_by_chunks(text: str) -> list:
     """Разделение текста на чанки по словам и абзацам, чтобы не превышать лимит в 4096 символов."""
     return_text = []
     cursor_index = 0
@@ -113,28 +119,40 @@ async def send_media_post(bot: Bot, tg_channel: str, text: str, photos: list, vi
     """Функция отправки сообщения с медиа"""
 
     # Добавляем фото и видео в группу медиа
-    media = types.MediaGroup()
+    media = []
     for photo in photos:
-        media.attach_photo(types.InputMediaPhoto(photo))
+        media.append(InputMediaPhoto(media=photo))
     for video in videos:
-        media.attach_video(types.InputMediaVideo(video))
+        media.append(InputMediaVideo(media=video))
 
-    # Определяем размер текста, и на этой основе выбираем способ отправки
-    if text and (len(text) <= 1024):
-        media.media[0].caption = text
-        media.media[0].parse_mode = types.ParseMode.HTML
-    elif text:
-        await send_text_post(bot, tg_channel, text)
+    if not media:
+        return
 
-    # Отправляем всё медиа
-    await bot.send_media_group(tg_channel, media)
+    reply_id = None
 
+    # Прикрепляем текст к первому элементу медиагруппы
+    if text:
+        caption = text if len(text) <= 1024 else None
+        media[0].caption = caption
+        media[0].parse_mode = ParseMode.HTML
+
+        # Если текст слишком длинный для подписи, шлем его отдельным сообщением
+        if len(text) > 1024:
+            reply_id = await send_text_post(bot, tg_channel, text)
+
+    reply_params = ReplyParameters(message_id=reply_id) if reply_id else None
+
+    await bot.send_media_group(tg_channel, media=media, reply_parameters=reply_params)
     logger.info("Text post with media sent to Telegram.")
 
 
 async def send_docs_post(bot: Bot, tg_channel: str, docs: list) -> None:
-    media = types.MediaGroup()
+    """Отправка документов без текста"""
+    media = []
     for doc in docs:
-        media.attach_document(types.InputMediaDocument(open(f"./temp/{doc['title']}", "rb")))
-    await bot.send_media_group(tg_channel, media)
-    logger.info("Documents sent to Telegram.")
+        file_path = f"./temp/{doc['title']}"
+        media.append(InputMediaDocument(media=FSInputFile(file_path)))
+
+    if media:
+        await bot.send_media_group(tg_channel, media=media)
+        logger.info("Documents sent.")

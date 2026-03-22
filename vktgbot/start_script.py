@@ -1,8 +1,6 @@
 from typing import Union
 
-from aiogram import Bot, Dispatcher
-from aiogram.utils import executor
-from aiohttp import BasicAuth
+from aiogram import Bot
 from loguru import logger
 
 import config
@@ -13,12 +11,7 @@ from send_posts import send_post
 from tools import blacklist_check, prepare_temp_folder, whitelist_check
 
 
-def start_script():
-    proxy_auth = None
-    if config.PROXY_URL and config.PROXY_LOGIN and config.PROXY_PASSWORD:
-        proxy_auth = BasicAuth(login=config.PROXY_LOGIN, password=config.PROXY_PASSWORD)
-    bot = Bot(token=config.TG_BOT_TOKEN, proxy=config.PROXY_URL, proxy_auth=proxy_auth)
-    dp = Dispatcher(bot)
+async def start_script(bot: Bot):
 
     last_known_id = read_id()
     offset = 0
@@ -95,16 +88,13 @@ def start_script():
                 parsed_post = parse_post(item_parts[item_part], repost_exists, item_part, group_name)
                 logger.info(f"Starting sending of the {item_part}")
                 try:
-                    executor.start(
-                        dp,
-                        send_post(
-                            bot,
-                            config.TG_CHANNEL,
-                            parsed_post["text"],
-                            parsed_post["photos"],
-                            parsed_post["videos"],
-                            parsed_post["docs"],
-                        ),
+                    await send_post(
+                        bot,
+                        config.TG_CHANNEL,
+                        parsed_post["text"],
+                        parsed_post["photos"],
+                        parsed_post["videos"],
+                        parsed_post["docs"],
                     )
                 except RuntimeError as e:
                     logger.error("The script was stopped (probably by the user).")

@@ -5,6 +5,7 @@ from loguru import logger
 
 authors = {}
 
+
 def blacklist_check(blacklist: list, text: str) -> bool:
     if blacklist:
         text_lower = text.lower()
@@ -29,12 +30,16 @@ def whitelist_check(whitelist: list, text: str) -> bool:
 
 
 def prepare_temp_folder():
+    remove_temp_folder()
+    os.mkdir("temp")
+
+
+def remove_temp_folder():
     if "temp" in os.listdir():
         for root, dirs, files in os.walk("temp"):
             for file in files:
                 os.remove(os.path.join(root, file))
-    else:
-        os.mkdir("temp")
+    os.rmdir("temp")
 
 
 def prepare_text_for_reposts(text: str, item: dict, item_type: str, group_name: str) -> str:
@@ -76,7 +81,7 @@ def add_urls_to_text(text: str, urls: list, videos_urls: list) -> str:
 def split_text(text: str, fragment_size: int) -> list:
     fragments = []
     for fragment in range(0, len(text), fragment_size):
-        fragments.append(text[fragment : fragment + fragment_size])
+        fragments.append(text[fragment: fragment + fragment_size])
     return fragments
 
 
@@ -85,8 +90,8 @@ def reformat_vk_links(text: str) -> str:
 
     while match:
         left_text = text[: match.span()[0]]
-        right_text = text[match.span()[1] :]
-        matching_text = text[match.span()[0] : match.span()[1]]
+        right_text = text[match.span()[1]:]
+        matching_text = text[match.span()[0]: match.span()[1]]
 
         link_domain, link_text = re.findall("\[(.+?)\|(.+?)\]", matching_text)[0]
         new_link = authors.get(link_domain, f'https://vk.com/{link_domain}')

@@ -1,5 +1,7 @@
-aiogram<=2.25.2
-requests~=2.31.0
+aiogram~=3.26.0
+requests~=2.32.5
 loguru~=0.7.3
-python-dotenv~=1.0.1
-aiohttp~=3.8.6
+python-dotenv~=1.2.2
+aiohttp~=3.13.3
+aiohttp-socks~=0.11.0
+aiohttp-proxy~=0.1.2
