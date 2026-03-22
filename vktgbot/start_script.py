@@ -2,6 +2,7 @@ from typing import Union
 
 from aiogram import Bot, Dispatcher
 from aiogram.utils import executor
+from aiohttp import BasicAuth
 from loguru import logger
 
 import config
@@ -13,7 +14,10 @@ from tools import blacklist_check, prepare_temp_folder, whitelist_check
 
 
 def start_script():
-    bot = Bot(token=config.TG_BOT_TOKEN)
+    proxy_auth = None
+    if config.PROXY_URL and config.PROXY_LOGIN and config.PROXY_PASSWORD:
+        proxy_auth = BasicAuth(login=config.PROXY_LOGIN, password=config.PROXY_PASSWORD)
+    bot = Bot(token=config.TG_BOT_TOKEN, proxy=config.PROXY_URL, proxy_auth=proxy_auth)
     dp = Dispatcher(bot)
 
     last_known_id = read_id()
