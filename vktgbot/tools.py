@@ -39,7 +39,7 @@ def remove_temp_folder():
         for root, dirs, files in os.walk("temp"):
             for file in files:
                 os.remove(os.path.join(root, file))
-    os.rmdir("temp")
+        os.rmdir("temp")
 
 
 def prepare_text_for_reposts(text: str, item: dict, item_type: str, group_name: str) -> str:

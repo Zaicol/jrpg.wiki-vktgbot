@@ -2,7 +2,7 @@
 Telegram Bot for automated reposting from VKontakte community pages
 to Telegram channels.
 
-v4.0
+v4.0.1
 by @zaicol
 original by @alcortazzo
 """
